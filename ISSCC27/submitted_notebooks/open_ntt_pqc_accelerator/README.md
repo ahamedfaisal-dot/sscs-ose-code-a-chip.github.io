@@ -69,7 +69,7 @@ A GPU only delivers performance when batching thousands of parallel operations. 
 
 ---
 
-## 🏗️ System Architecture
+##  System Architecture
 
 ### ASCII Interconnect Map
 
@@ -283,7 +283,7 @@ assert_bank_conflict_free: assert property (p_bank_conflict_free);
 
 ---
 
-## 🤖 ML + LLM Design Space Exploration (N6)
+##  ML + LLM Design Space Exploration (N6)
 
 ### Machine Learning Surrogate Model (`dse/ml_model.py`)
 
