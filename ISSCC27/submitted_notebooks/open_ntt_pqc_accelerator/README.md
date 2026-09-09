@@ -5,6 +5,8 @@
 > Technology: SkyWater 130nm `sky130A` PDK | Flow: OpenLane2 RTL-to-GDSII
 > Verification: cocotb + Icarus Verilog + SymbiYosys (Formal SVA) + Golden Python Reference
 
+![Innovations](https://img.shields.io/badge/Innovations-N1–N12-blueviolet?style=flat-square) ![Modules](https://img.shields.io/badge/Modules-15%20Verified-brightgreen?style=flat-square) ![Speedup](https://img.shields.io/badge/Speedup-25.5×%20%2F%2051×-orange?style=flat-square) ![Tests](https://img.shields.io/badge/Tests-15%2F15%20PASS-success?style=flat-square) ![SVA](https://img.shields.io/badge/SVA%20Formal-4%2F4%20PROVEN-blue?style=flat-square) ![PDK](https://img.shields.io/badge/PDK-sky130A%20130nm-lightgrey?style=flat-square)
+
 ---
 
 ## Project Overview
@@ -17,7 +19,7 @@ The project innovates across **12 novel technical axes (N1–N12)** spanning har
 
 ---
 
-
+## Plain-English Motivation
 
 ### The Quantum Threat & Post-Quantum Cryptography
 Today's public-key cryptography (RSA, ECC) will be rendered insecure once large-scale quantum computers arrive. In 2024, **NIST released the official Post-Quantum Cryptography standards**:
@@ -69,42 +71,34 @@ A GPU only delivers performance when batching thousands of parallel operations. 
 
 ---
 
-##  System Architecture
+## System Architecture
 
-### ASCII Interconnect Map
+### Full SoC Block Diagram
+
+![OpenNTT Full SoC Architecture — 12 Innovations N1–N12](figures/architecture_diagram.png)
+
+> **Color coding**: 🟦 Host Interface (N3) · 🟩 Compute Datapath (N1,N2,N4) · 🟨 Dual-Core Engine (N11) · 🟥 Security Layer (N5,N10) · 🟪 Autonomous PQC Engine (N7,N8,N9,N12) · 🟩 ML/LLM DSE (N6)
+
+### Interconnect Summary
 
 ```
-                +------------------------------------------------------------------+
-                |                         OpenNTT SoC                              |
-                |                                                                   |
-  +---------+   |  +--------------+                 +---------------------------+   |
-  | PicoRV32|<->|->|  ntt_pcpi    |---------------->|         ntt_top           |   |
-  | RISC-V  |   |  | (custom0 N3) |                 |      Datapath FSM         |   |
-  +---------+   |  +--------------+                 +-------------+-------------+   |
-       |        |                                                 |                 |
-       v        |  +--------------+              +--------------+ |                 |
-  [Wishbone]--->|->|   ntt_dma    |<------------>| ntt_dual_core| |  (N11 2X/LS)   |
-       ^        |  |  (Bus Master)|              | butterfly_r4 | |  (N1  Radix-4) |
-       |        |  +--------------+              | twiddle_gen  | |  (N4  OTF)     |
-       v        |                                | mod_mul      | |  (N2  Mont.)   |
-  +---------+   |  +--------------+              | banked_mem   | |  (N1  4-Bank)  |
-  | Shared  |<->|->|  Coeff RAM   |<-------------+ mask         | |  (N5  DPA)     |
-  |  SRAM   |   |  | 2x256x24b   |              | fault_detect | |  (N5  FIA)     |
-  +---------+   |  +--------------+              | perf_counter | |  (N5/N6)       |
-                |                                | clk_jit_cam  | |  (N10 CPA/CEMA)|
-                |  +------------------------+    | poly_sampler | |  (N12 CBD+Rej) |
-                |  | TRNG (N7)              |<-->+  ↑           | |                |
-                |  +------------------------+    | keccak_xof   |<+  (N9 SHAKE-128)|
-                |  | Keccak XOF (N9)        |    +---------------------------+     |
-                |  +------------------------+                                       |
-                +------------------------------------------------------------------+
-                           |
-                           v  [Offline DSE + Formal Verification]
-                +--------------------+    +----------------------+    +-------------------+
-                | ML Surrogate GBDT  |    |  LLM PQC Optimizer   |    | SVA Formal Suite  |
-                |  R² > 0.99 (N6)    |    |  Ring Compiler (N6)  |    | SymbiYosys / Z3   |
-                |  Pareto Frontier   |    |  DPA Auditor         |    | Zero-Leakage Proof|
-                +--------------------+    +----------------------+    +-------------------+
+PicoRV32 ──[N3: PCPI custom0]──► ntt_pcpi.v ──► ntt_top.v (FSM)
+         ──[N3: Wishbone DMA ]──► ntt_dma.v  ──► banked_mem_ctrl.v ◄──► Shared SRAM
+
+ntt_top.v  ──► ntt_dual_core.v ──┬── Core 0: butterfly_radix4.v [N1]
+                                  └── Core 1: butterfly_radix4.v [N1]  (Mode 0=2×/Mode 1=Lockstep N11)
+           ──► mod_mul.v         [N2: Montgomery, dual q=3329/8380417]
+           ──► twiddle_gen.v     [N4: ROM-less OTF, >80% area saving]
+           ──► mask.v            [N5: DPA 1st-order share split]
+           ──► fault_detect.v    [N5: FIA residue detector, 1-cycle alarm]
+           ──► clock_jitter_cam.v[N10: 4-tap phase jitter + dummy load]
+           ──► perf_counters.v   [N5/N6: cycle + Hamming toggle]
+
+trng.v       ──[entropy bus]──► mask.v + clock_jitter_cam.v    [N7]
+keccak_xof.v ──[coeff stream]──► coeff_ram.v                   [N9]
+poly_sampler.v──[CBD/rej]──► coeff_ram.v                       [N12]
+ntt_sva.sv   ──[4/4 SVA PROVEN] SymbiYosys + Z3 SMT            [N8]
+ml_model.py + llm_pqc_optimizer.py + dse_agent.py ──[47 Pareto designs] [N6]
 ```
 
 ---
@@ -424,7 +418,7 @@ open_ntt_pqc_accelerator/
 │   └── system_architecture.md    ← Full system blueprint & novelty mapping
 │
 ├── figures/
-│   ├── architecture_diagram.jpg  ← SoC block diagram
+│   ├── architecture_diagram.png  ← SoC block diagram (matplotlib, N1–N12)
 │   ├── ml_surrogate_parity.png   ← ML surrogate R² parity plots
 │   └── waveform_timing.png       ← RTL digital timing waveform
 │
