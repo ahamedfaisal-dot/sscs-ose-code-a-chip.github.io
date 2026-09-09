@@ -34,6 +34,9 @@ TESTS = {
     "perf_counters": (["perf_counters.v"], "perf_counters", "test_perf_counters"),
     "trng": (["trng.v"], "trng", "test_trng"),
     "keccak_xof": (["keccak_xof.v"], "keccak_xof", "test_keccak_xof"),
+    "clock_jitter_cam": (["clock_jitter_cam.v"], "clock_jitter_cam", "test_clock_jitter_cam"),
+    "ntt_dual_core": (["mod_mul.v", "butterfly.v", "ntt_dual_core.v"], "ntt_dual_core", "test_ntt_dual_core"),
+    "poly_sampler": (["poly_sampler.v"], "poly_sampler", "test_poly_sampler"),
 }
 
 # tests that need the twiddle hex present in the vvp working directory
